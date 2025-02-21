@@ -2,20 +2,20 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>LEO-GAME</title>
+  <title>UFO Ausweichspiel – Pixel Gegner, Touch und Score</title>
   <style>
     body {
       margin: 0;
       padding: 0;
       background: #000;
       color: #fff;
-      font-family: 'Courier New', monospace;
+      font-family: sans-serif;
     }
     canvas {
       display: block;
       margin: 0 auto;
       background: #111;
-      touch-action: none; /* Verhindert Standard-Gesten */
+      touch-action: none; /* Verhindert z. B. Scrollen */
     }
   </style>
 </head>
@@ -25,19 +25,20 @@
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
-    // Game States: "start", "running", "gameover"
-    let gameState = "start";
-
-    // Spieler-UFO (Leo sitzt darin)
+    // Spieler-UFO laden (Leo sitzt drin)
     const playerImage = new Image();
-    playerImage.src = "ufo.png";
+    playerImage.src = "ufo.png"; // Stelle sicher, dass diese Datei vorhanden ist
 
+    // Spieler: UFO, in dem Leo sitzt
     const player = {
       x: 50,
       y: canvas.height / 2 - 25,
       width: 50,
       height: 50,
-      speed: 4
+      speed: 4,
+      rotation: 0,
+      rotationSpeed: 0,
+      fallSpeed: 0
     };
 
     // Hintergrundsterne für Parallax-Effekt
@@ -45,11 +46,11 @@
     const numStars = 150;
     function createStars() {
       for (let i = 0; i < numStars; i++) {
-        const size = Math.random() * 2 + 1;
+        const size = Math.random() * 2 + 1;  // Größe zwischen 1 und 3 Pixeln
         const speed = Math.random() * 0.2 + 0.1;
         const x = Math.random() * canvas.width;
         const y = Math.random() * canvas.height;
-        const depth = Math.random() * 2 + 1;
+        const depth = Math.random() * 2 + 1;   // Tiefe zwischen 1 und 3
         stars.push({ x, y, size, speed, depth });
       }
     }
@@ -67,16 +68,19 @@
       }
     }
 
-    // Steuerung: Tastatur
+    // Tastatursteuerung
     const keys = { up: false, down: false, left: false, right: false };
     document.addEventListener("keydown", function(e) {
-      if (gameState !== "running") {
-        startGame();
+      if (gameState === "playing") {
+        if (e.code === "ArrowUp") keys.up = true;
+        if (e.code === "ArrowDown") keys.down = true;
+        if (e.code === "ArrowLeft") keys.left = true;
+        if (e.code === "ArrowRight") keys.right = true;
       }
-      if (e.code === "ArrowUp") keys.up = true;
-      if (e.code === "ArrowDown") keys.down = true;
-      if (e.code === "ArrowLeft") keys.left = true;
-      if (e.code === "ArrowRight") keys.right = true;
+      // Restart bei Game Over
+      if (gameState === "gameOver") {
+        restartGame();
+      }
     });
     document.addEventListener("keyup", function(e) {
       if (e.code === "ArrowUp") keys.up = false;
@@ -85,30 +89,31 @@
       if (e.code === "ArrowRight") keys.right = false;
     });
 
-    // Steuerung: Touch – bewegt das UFO in Richtung des Touchpunkts
+    // Touchsteuerung: Das UFO bewegt sich in Richtung des Touchpunkts
     let touchActive = false;
     let touchTarget = { x: player.x, y: player.y };
     function handleTouch(e) {
       e.preventDefault();
-      if (gameState !== "running") {
-        startGame();
+      if (gameState === "playing") {
+        touchActive = true;
+        const touch = e.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        touchTarget.x = touch.clientX - rect.left;
+        touchTarget.y = touch.clientY - rect.top;
+      } else if (gameState === "gameOver") {
+        restartGame();
       }
-      touchActive = true;
-      const touch = e.touches[0];
-      const rect = canvas.getBoundingClientRect();
-      touchTarget.x = touch.clientX - rect.left;
-      touchTarget.y = touch.clientY - rect.top;
     }
     canvas.addEventListener("touchstart", handleTouch, false);
     canvas.addEventListener("touchmove", handleTouch, false);
     canvas.addEventListener("touchend", function(e) { touchActive = false; }, false);
 
-    // Gegner: Steine und feindliche UFOs, die im Pixelstil gezeichnet werden
+    // Gegner: Steine und feindliche UFOs
     let enemies = [];
     const enemySpawnInterval = 2000; // alle 2 Sekunden
     let lastSpawnTime = Date.now();
     function spawnEnemy() {
-      const type = Math.random() < 0.5 ? "stone" : "ufo";
+      const type = Math.random() < 0.5 ? "stone" : "ufo"; // 50:50 Chance
       const enemySize = type === "stone" ? 40 : 50;
       const yPos = Math.random() * (canvas.height - enemySize);
       const speed = type === "stone" ? 3 : 2;
@@ -121,6 +126,8 @@
         speed: speed
       });
     }
+
+    // Einfache Kollisionsprüfung
     function rectIntersect(r1, r2) {
       return !(r2.x > r1.x + r1.width ||
                r2.x + r2.width < r1.x ||
@@ -128,44 +135,27 @@
                r2.y + r2.height < r1.y);
     }
 
-    // Score-System: basierend auf Überlebenszeit
+    // Score-System: Score basiert auf der Überlebenszeit
     let score = 0;
     let startTime = Date.now();
 
-    // Absturz-Animation
-    let crashAnimation = false;
+    // Spielzustände: "playing", "crashing", "gameOver"
+    let gameState = "playing";
     let crashStartTime = 0;
-    let crashY = player.y;
-
-    // Startet oder startet das Spiel neu
-    function startGame() {
-      gameState = "running";
-      score = 0;
-      startTime = Date.now();
-      lastSpawnTime = Date.now();
-      enemies = [];
-      player.x = 50;
-      player.y = canvas.height / 2 - 25;
-      crashAnimation = false;
-      crashY = player.y;
-    }
-
-    // Bei Kollision wird das Spiel beendet
-    function gameOver() {
-      gameState = "gameover";
-      enemies = [];
-      crashAnimation = true;
-      crashStartTime = Date.now();
-    }
+    const crashDuration = 2000; // Dauer des Absturzanims in ms
+    let finalScore = 0;
 
     function update(deltaTime) {
-      if (gameState === "running") {
+      if (gameState === "playing") {
         score = Math.floor((Date.now() - startTime) / 1000);
+
+        // Gegner spawnen
         if (Date.now() - lastSpawnTime > enemySpawnInterval) {
           spawnEnemy();
           lastSpawnTime = Date.now();
         }
-        // Spielerbewegung
+
+        // Spielerbewegung: Touchsteuerung hat Vorrang
         if (touchActive) {
           player.x += (touchTarget.x - player.x - player.width / 2) * 0.2;
           player.y += (touchTarget.y - player.y - player.height / 2) * 0.2;
@@ -181,32 +171,39 @@
         if (player.y < 0) player.y = 0;
         if (player.y + player.height > canvas.height) player.y = canvas.height - player.height;
 
-        // Gegner aktualisieren und Kollision prüfen
+        // Gegner updaten und Kollision prüfen
         for (let i = enemies.length - 1; i >= 0; i--) {
           const enemy = enemies[i];
           enemy.x -= enemy.speed;
           if (rectIntersect(player, enemy)) {
-            gameOver();
-            return;
+            // Bei Kollision: Crash-Animation starten
+            gameState = "crashing";
+            crashStartTime = Date.now();
+            finalScore = score;
+            player.fallSpeed = 2;
+            player.rotation = 0;
+            player.rotationSpeed = 0.1;
+            break;
           }
           if (enemy.x + enemy.width < 0) {
             enemies.splice(i, 1);
           }
         }
-      }
-
-      // Absturz-Animation, wenn das UFO getroffen wird
-      if (crashAnimation) {
-        crashY += 5;
-        if (crashY > canvas.height) {
-          crashY = canvas.height;
+      } else if (gameState === "crashing") {
+        // Spieler stürzt ab: schneller Fall und Rotation
+        player.y += player.fallSpeed;
+        player.fallSpeed += 0.1;
+        player.rotation += player.rotationSpeed;
+        if (Date.now() - crashStartTime > crashDuration) {
+          gameState = "gameOver";
         }
       }
+      // Im "gameOver"-Zustand passiert nichts – der Screen zeigt den finalen Score
     }
 
-    // Gegner im Pixelstil zeichnen
+    // Zeichnet feindliche UFOs im Pixelstil
     function drawPixelEnemyUFO(x, y, width, height) {
-      const scale = width / 8; // 8x8 Rasterbasis
+      const scale = width / 8; // 8x8-Pixel-Gitterbasis
       ctx.fillStyle = "#ff00ff";
       ctx.fillRect(x, y + scale * 4, scale * 8, scale * 2);
       ctx.fillStyle = "#ff99ff";
@@ -214,6 +211,8 @@
       ctx.fillStyle = "#cc0099";
       ctx.fillRect(x + scale * 3, y + scale * 6, scale * 2, scale);
     }
+
+    // Zeichnet einen Stein im Pixelstil
     function drawPixelStone(x, y, width, height) {
       ctx.fillStyle = "#888888";
       ctx.fillRect(x, y, width, height);
@@ -222,90 +221,100 @@
       ctx.fillRect(x + width * 0.6, y + height * 0.5, width * 0.2, height * 0.2);
     }
 
-    // Overlay für Start- und Gameover-Screen: Blinkender Neon-Text "LEO-GAME"
-    function drawOverlay() {
-      ctx.save();
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.font = "bold 60px 'Courier New', monospace";
-      ctx.shadowColor = "#0ff";
-      ctx.shadowBlur = 20;
-      ctx.fillStyle = "#0ff";
-      // Blinken: Text wird alle 500 ms angezeigt/ausgeblendet
-      if (Math.floor(Date.now() / 500) % 2 === 0) {
-        ctx.fillText("LEO-GAME", canvas.width / 2, canvas.height / 2);
-      }
-      ctx.restore();
-
-      if (gameState === "gameover") {
-        // Score anzeigen
-        ctx.save();
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.font = "30px Arial";
-        ctx.fillStyle = "#fff";
-        if (Math.floor(Date.now() / 500) % 2 === 0) {
-          ctx.fillText("Score: " + score, canvas.width / 2, canvas.height / 2 + 50);
-        }
-        ctx.restore();
-      }
-      
-      // Instruktionstext
-      ctx.save();
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.font = "20px Arial";
-      ctx.fillStyle = "#fff";
-      ctx.fillText("Touch oder Taste drücken zum Starten", canvas.width / 2, canvas.height / 2 + 100);
-      ctx.restore();
-    }
-
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      // Hintergrundsterne
       drawStars();
 
-      // Spieler zeichnen (UFO mit Leo)
-      if (crashAnimation) {
-        ctx.fillStyle = "#f00"; // Absturzrot
-        ctx.fillRect(player.x, crashY, player.width, player.height);
-      } else {
+      if (gameState === "playing" || gameState === "crashing") {
+        // Gegner zeichnen
+        enemies.forEach(enemy => {
+          if (enemy.type === "ufo") {
+            drawPixelEnemyUFO(enemy.x, enemy.y, enemy.width, enemy.height);
+          } else {
+            drawPixelStone(enemy.x, enemy.y, enemy.width, enemy.height);
+          }
+        });
+
+        // Spieler zeichnen – im Crashfall rotiert das UFO
         if (playerImage.complete) {
-          ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
+          if (gameState === "crashing") {
+            ctx.save();
+            // Zum Rotationszentrum verschieben
+            ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
+            ctx.rotate(player.rotation);
+            ctx.drawImage(playerImage, -player.width / 2, -player.height / 2, player.width, player.height);
+            ctx.restore();
+          } else {
+            ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
+          }
         } else {
           ctx.fillStyle = "#0f0";
           ctx.fillRect(player.x, player.y, player.width, player.height);
         }
-      }
 
-      // Gegner zeichnen
-      enemies.forEach(enemy => {
-        if (enemy.type === "ufo") {
-          drawPixelEnemyUFO(enemy.x, enemy.y, enemy.width, enemy.height);
-        } else {
-          drawPixelStone(enemy.x, enemy.y, enemy.width, enemy.height);
+        // Score anzeigen (während des Spielens)
+        if (gameState === "playing") {
+          ctx.fillStyle = "#fff";
+          ctx.font = "20px Arial";
+          ctx.fillText("Score: " + score, 10, 30);
         }
-      });
-
-      // Score nur anzeigen, wenn das Spiel läuft
-      if (gameState === "running") {
+      } else if (gameState === "gameOver") {
+        // Game-Over Screen mit blinkendem Score
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = "#fff";
+        ctx.font = "40px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("Game Over", canvas.width / 2, canvas.height / 2 - 40);
+
+        // Score blinkt alle 500ms (sichtbar / unsichtbar)
+        if (Math.floor(Date.now() / 500) % 2 === 0) {
+          ctx.font = "30px Arial";
+          ctx.fillText("Score: " + finalScore, canvas.width / 2, canvas.height / 2);
+        }
         ctx.font = "20px Arial";
-        ctx.fillText("Score: " + score, 10, 30);
-      } else {
-        // Overlay für Start- oder Gameover-Zustand
-        drawOverlay();
+        ctx.fillText("Drücke eine Taste oder tippe für Neustart", canvas.width / 2, canvas.height / 2 + 40);
       }
     }
 
+    // Restart-Funktion: Setzt alle Variablen zurück und startet das Spiel neu
+    function restartGame() {
+      gameState = "playing";
+      player.x = 50;
+      player.y = canvas.height / 2 - 25;
+      player.rotation = 0;
+      player.fallSpeed = 0;
+      score = 0;
+      startTime = Date.now();
+      lastSpawnTime = Date.now();
+      enemies = [];
+    }
+
+    // Game-Loop
     let lastTime = 0;
     function gameLoop(timestamp) {
       if (!lastTime) lastTime = timestamp;
       const deltaTime = timestamp - lastTime;
       lastTime = timestamp;
+
       update(deltaTime);
       draw();
       requestAnimationFrame(gameLoop);
     }
 
-    // Spiel starten, sobald das Spielerbild geladen ist (auch wenn es bereits
+    // Spiel starten, sobald das Spielerbild geladen ist (oder falls es bereits im Cache ist)
+    playerImage.onload = function() {
+      createStars();
+      startTime = Date.now();
+      lastSpawnTime = Date.now();
+      requestAnimationFrame(gameLoop);
+    };
+    if (playerImage.complete) {
+      createStars();
+      startTime = Date.now();
+      lastSpawnTime = Date.now();
+      requestAnimationFrame(gameLoop);
+    }
+  </script>
+</body>
+</html>
