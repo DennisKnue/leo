@@ -2,20 +2,20 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>UFO Ausweichspiel - Touch Edition</title>
+  <title>LEO-GAME</title>
   <style>
     body {
       margin: 0;
       padding: 0;
       background: #000;
       color: #fff;
-      font-family: sans-serif;
+      font-family: 'Courier New', monospace;
     }
     canvas {
       display: block;
       margin: 0 auto;
       background: #111;
-      touch-action: none; /* Verhindert Standard-Gesten (z.B. Scrollen) */
+      touch-action: none; /* Verhindert Standard-Gesten */
     }
   </style>
 </head>
@@ -25,12 +25,14 @@
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
-    // UFO-Bild laden (Bild: ufo.png, in dem Leo sitzt)
-    const ufoImage = new Image();
-    ufoImage.src = "ufo.png";
+    // Game States: "start", "running", "gameover"
+    let gameState = "start";
 
-    // Spieler: UFO, in dem Leo sitzt
-    const ufo = {
+    // Spieler-UFO (Leo sitzt darin)
+    const playerImage = new Image();
+    playerImage.src = "ufo.png";
+
+    const player = {
       x: 50,
       y: canvas.height / 2 - 25,
       width: 50,
@@ -38,21 +40,44 @@
       speed: 4
     };
 
-    // Tastatursteuerung
-    const keys = {
-      up: false,
-      down: false,
-      left: false,
-      right: false
-    };
+    // Hintergrundsterne für Parallax-Effekt
+    const stars = [];
+    const numStars = 150;
+    function createStars() {
+      for (let i = 0; i < numStars; i++) {
+        const size = Math.random() * 2 + 1;
+        const speed = Math.random() * 0.2 + 0.1;
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const depth = Math.random() * 2 + 1;
+        stars.push({ x, y, size, speed, depth });
+      }
+    }
+    function drawStars() {
+      for (const star of stars) {
+        star.x -= star.speed * star.depth;
+        if (star.x < 0) {
+          star.x = canvas.width;
+          star.y = Math.random() * canvas.height;
+        }
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+        ctx.fillStyle = "white";
+        ctx.fill();
+      }
+    }
 
+    // Steuerung: Tastatur
+    const keys = { up: false, down: false, left: false, right: false };
     document.addEventListener("keydown", function(e) {
+      if (gameState !== "running") {
+        startGame();
+      }
       if (e.code === "ArrowUp") keys.up = true;
       if (e.code === "ArrowDown") keys.down = true;
       if (e.code === "ArrowLeft") keys.left = true;
       if (e.code === "ArrowRight") keys.right = true;
     });
-
     document.addEventListener("keyup", function(e) {
       if (e.code === "ArrowUp") keys.up = false;
       if (e.code === "ArrowDown") keys.down = false;
@@ -60,46 +85,42 @@
       if (e.code === "ArrowRight") keys.right = false;
     });
 
-    // Touchsteuerung: Das UFO folgt dem Finger
+    // Steuerung: Touch – bewegt das UFO in Richtung des Touchpunkts
     let touchActive = false;
-    let touchTarget = { x: ufo.x, y: ufo.y };
-
+    let touchTarget = { x: player.x, y: player.y };
     function handleTouch(e) {
-      e.preventDefault(); // verhindert Standardaktionen wie Scrollen
+      e.preventDefault();
+      if (gameState !== "running") {
+        startGame();
+      }
       touchActive = true;
       const touch = e.touches[0];
       const rect = canvas.getBoundingClientRect();
-      // Berechne die Touchposition relativ zum Canvas
       touchTarget.x = touch.clientX - rect.left;
       touchTarget.y = touch.clientY - rect.top;
     }
-
     canvas.addEventListener("touchstart", handleTouch, false);
     canvas.addEventListener("touchmove", handleTouch, false);
-    canvas.addEventListener("touchend", function(e) {
-      touchActive = false;
-    }, false);
+    canvas.addEventListener("touchend", function(e) { touchActive = false; }, false);
 
-    // Hindernisse (z. B. Meteoriten), die von rechts hereinkommen
-    let obstacles = [];
-    const obstacleSpeed = 3;
-    const obstacleSpawnInterval = 2000; // alle 2 Sekunden
+    // Gegner: Steine und feindliche UFOs, die im Pixelstil gezeichnet werden
+    let enemies = [];
+    const enemySpawnInterval = 2000; // alle 2 Sekunden
     let lastSpawnTime = Date.now();
-
-    function spawnObstacle() {
-      const obstacleSize = 40;
-      const obstacleY = Math.random() * (canvas.height - obstacleSize);
-      const obstacle = {
+    function spawnEnemy() {
+      const type = Math.random() < 0.5 ? "stone" : "ufo";
+      const enemySize = type === "stone" ? 40 : 50;
+      const yPos = Math.random() * (canvas.height - enemySize);
+      const speed = type === "stone" ? 3 : 2;
+      enemies.push({
+        type: type,
         x: canvas.width,
-        y: obstacleY,
-        width: obstacleSize,
-        height: obstacleSize,
-        speed: obstacleSpeed
-      };
-      obstacles.push(obstacle);
+        y: yPos,
+        width: enemySize,
+        height: enemySize,
+        speed: speed
+      });
     }
-
-    // Einfache Kollisionsprüfung zwischen zwei Rechtecken
     function rectIntersect(r1, r2) {
       return !(r2.x > r1.x + r1.width ||
                r2.x + r2.width < r1.x ||
@@ -107,80 +128,141 @@
                r2.y + r2.height < r1.y);
     }
 
+    // Score-System: basierend auf Überlebenszeit
     let score = 0;
     let startTime = Date.now();
 
+    // Startet oder startet das Spiel neu
+    function startGame() {
+      gameState = "running";
+      score = 0;
+      startTime = Date.now();
+      lastSpawnTime = Date.now();
+      enemies = [];
+      player.x = 50;
+      player.y = canvas.height / 2 - 25;
+    }
+
+    // Bei Kollision wird das Spiel beendet
+    function gameOver() {
+      gameState = "gameover";
+      enemies = [];
+      player.x = 50;
+      player.y = canvas.height / 2 - 25;
+    }
+
     function update(deltaTime) {
-      // Score basiert auf der überlebten Zeit
-      score = Math.floor((Date.now() - startTime) / 1000);
-
-      // Hindernisse spawnen
-      if (Date.now() - lastSpawnTime > obstacleSpawnInterval) {
-        spawnObstacle();
-        lastSpawnTime = Date.now();
-      }
-
-      // UFO-Bewegung: Touchsteuerung hat Vorrang, ansonsten Tastatursteuerung
-      if (touchActive) {
-        // Interpolieren: UFO bewegt sich sanft in Richtung des Touchpunkts
-        ufo.x += (touchTarget.x - ufo.x - ufo.width / 2) * 0.2;
-        ufo.y += (touchTarget.y - ufo.y - ufo.height / 2) * 0.2;
-      } else {
-        if (keys.up)    ufo.y -= ufo.speed;
-        if (keys.down)  ufo.y += ufo.speed;
-        if (keys.left)  ufo.x -= ufo.speed;
-        if (keys.right) ufo.x += ufo.speed;
-      }
-
-      // Begrenzung: UFO bleibt im Canvas
-      if (ufo.x < 0) ufo.x = 0;
-      if (ufo.x + ufo.width > canvas.width) ufo.x = canvas.width - ufo.width;
-      if (ufo.y < 0) ufo.y = 0;
-      if (ufo.y + ufo.height > canvas.height) ufo.y = canvas.height - ufo.height;
-
-      // Update und Kollisionsprüfung der Hindernisse
-      for (let i = obstacles.length - 1; i >= 0; i--) {
-        let obs = obstacles[i];
-        obs.x -= obs.speed;
-        if (rectIntersect(ufo, obs)) {
-          resetGame();
-          return;
+      if (gameState === "running") {
+        score = Math.floor((Date.now() - startTime) / 1000);
+        if (Date.now() - lastSpawnTime > enemySpawnInterval) {
+          spawnEnemy();
+          lastSpawnTime = Date.now();
         }
-        if (obs.x + obs.width < 0) {
-          obstacles.splice(i, 1);
+        // Spielerbewegung
+        if (touchActive) {
+          player.x += (touchTarget.x - player.x - player.width / 2) * 0.2;
+          player.y += (touchTarget.y - player.y - player.height / 2) * 0.2;
+        } else {
+          if (keys.up)    player.y -= player.speed;
+          if (keys.down)  player.y += player.speed;
+          if (keys.left)  player.x -= player.speed;
+          if (keys.right) player.x += player.speed;
+        }
+        // Begrenzung: Spieler bleibt im Canvas
+        if (player.x < 0) player.x = 0;
+        if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+        if (player.y < 0) player.y = 0;
+        if (player.y + player.height > canvas.height) player.y = canvas.height - player.height;
+
+        // Gegner aktualisieren und Kollision prüfen
+        for (let i = enemies.length - 1; i >= 0; i--) {
+          const enemy = enemies[i];
+          enemy.x -= enemy.speed;
+          if (rectIntersect(player, enemy)) {
+            gameOver();
+            return;
+          }
+          if (enemy.x + enemy.width < 0) {
+            enemies.splice(i, 1);
+          }
         }
       }
     }
 
-    function resetGame() {
-      ufo.x = 50;
-      ufo.y = canvas.height / 2 - 25;
-      obstacles = [];
-      startTime = Date.now();
-      lastSpawnTime = Date.now();
+    // Gegner im Pixelstil zeichnen
+    function drawPixelEnemyUFO(x, y, width, height) {
+      const scale = width / 8; // 8x8 Rasterbasis
+      ctx.fillStyle = "#ff00ff";
+      ctx.fillRect(x, y + scale * 4, scale * 8, scale * 2);
+      ctx.fillStyle = "#ff99ff";
+      ctx.fillRect(x + scale * 2, y + scale * 2, scale * 4, scale * 2);
+      ctx.fillStyle = "#cc0099";
+      ctx.fillRect(x + scale * 3, y + scale * 6, scale * 2, scale);
+    }
+    function drawPixelStone(x, y, width, height) {
+      ctx.fillStyle = "#888888";
+      ctx.fillRect(x, y, width, height);
+      ctx.fillStyle = "#666666";
+      ctx.fillRect(x + width * 0.2, y + height * 0.2, width * 0.2, height * 0.2);
+      ctx.fillRect(x + width * 0.6, y + height * 0.5, width * 0.2, height * 0.2);
+    }
+
+    // Overlay für Start- und Gameover-Screen: Blinkender Neon-Text "LEO-GAME"
+    function drawOverlay() {
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = "bold 60px 'Courier New', monospace";
+      ctx.shadowColor = "#0ff";
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = "#0ff";
+      // Blinken: Text wird alle 500 ms angezeigt/ausgeblendet
+      if (Math.floor(Date.now() / 500) % 2 === 0) {
+        ctx.fillText("LEO-GAME", canvas.width / 2, canvas.height / 2);
+      }
+      ctx.restore();
+      
+      // Instruktionstext
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = "20px Arial";
+      ctx.fillStyle = "#fff";
+      ctx.fillText("Touch oder Taste drücken zum Starten", canvas.width / 2, canvas.height / 2 + 50);
+      ctx.restore();
     }
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Hintergrundsterne
+      drawStars();
 
-      // UFO zeichnen (Leo sitzt drin)
-      if (ufoImage.complete) {
-        ctx.drawImage(ufoImage, ufo.x, ufo.y, ufo.width, ufo.height);
+      // Spieler zeichnen (UFO mit Leo)
+      if (playerImage.complete) {
+        ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
       } else {
         ctx.fillStyle = "#0f0";
-        ctx.fillRect(ufo.x, ufo.y, ufo.width, ufo.height);
+        ctx.fillRect(player.x, player.y, player.width, player.height);
       }
 
-      // Hindernisse zeichnen
-      ctx.fillStyle = "#f00";
-      obstacles.forEach(obs => {
-        ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+      // Gegner zeichnen
+      enemies.forEach(enemy => {
+        if (enemy.type === "ufo") {
+          drawPixelEnemyUFO(enemy.x, enemy.y, enemy.width, enemy.height);
+        } else {
+          drawPixelStone(enemy.x, enemy.y, enemy.width, enemy.height);
+        }
       });
 
-      // Score anzeigen
-      ctx.fillStyle = "#fff";
-      ctx.font = "20px Arial";
-      ctx.fillText("Score: " + score, 10, 30);
+      // Score nur anzeigen, wenn das Spiel läuft
+      if (gameState === "running") {
+        ctx.fillStyle = "#fff";
+        ctx.font = "20px Arial";
+        ctx.fillText("Score: " + score, 10, 30);
+      } else {
+        // Overlay für Start- oder Gameover-Zustand
+        drawOverlay();
+      }
     }
 
     let lastTime = 0;
@@ -188,13 +270,24 @@
       if (!lastTime) lastTime = timestamp;
       const deltaTime = timestamp - lastTime;
       lastTime = timestamp;
-
       update(deltaTime);
       draw();
       requestAnimationFrame(gameLoop);
     }
 
-    requestAnimationFrame(gameLoop);
+    // Spiel starten, sobald das Spielerbild geladen ist (auch wenn es bereits im Cache ist)
+    playerImage.onload = function() {
+      createStars();
+      startTime = Date.now();
+      lastSpawnTime = Date.now();
+      requestAnimationFrame(gameLoop);
+    };
+    if (playerImage.complete) {
+      createStars();
+      startTime = Date.now();
+      lastSpawnTime = Date.now();
+      requestAnimationFrame(gameLoop);
+    }
   </script>
 </body>
 </html>
