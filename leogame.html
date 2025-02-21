@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>UFO Ausweichspiel - Touch Edition</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      color: #fff;
+      font-family: sans-serif;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+      background: #111;
+      touch-action: none; /* Verhindert Standard-Gesten (z.B. Scrollen) */
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="800" height="400"></canvas>
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // UFO-Bild laden (Bild: ufo.png, in dem Leo sitzt)
+    const ufoImage = new Image();
+    ufoImage.src = "ufo.png";
+
+    // Spieler: UFO, in dem Leo sitzt
+    const ufo = {
+      x: 50,
+      y: canvas.height / 2 - 25,
+      width: 50,
+      height: 50,
+      speed: 4
+    };
+
+    // Tastatursteuerung
+    const keys = {
+      up: false,
+      down: false,
+      left: false,
+      right: false
+    };
+
+    document.addEventListener("keydown", function(e) {
+      if (e.code === "ArrowUp") keys.up = true;
+      if (e.code === "ArrowDown") keys.down = true;
+      if (e.code === "ArrowLeft") keys.left = true;
+      if (e.code === "ArrowRight") keys.right = true;
+    });
+
+    document.addEventListener("keyup", function(e) {
+      if (e.code === "ArrowUp") keys.up = false;
+      if (e.code === "ArrowDown") keys.down = false;
+      if (e.code === "ArrowLeft") keys.left = false;
+      if (e.code === "ArrowRight") keys.right = false;
+    });
+
+    // Touchsteuerung: Das UFO folgt dem Finger
+    let touchActive = false;
+    let touchTarget = { x: ufo.x, y: ufo.y };
+
+    function handleTouch(e) {
+      e.preventDefault(); // verhindert Standardaktionen wie Scrollen
+      touchActive = true;
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      // Berechne die Touchposition relativ zum Canvas
+      touchTarget.x = touch.clientX - rect.left;
+      touchTarget.y = touch.clientY - rect.top;
+    }
+
+    canvas.addEventListener("touchstart", handleTouch, false);
+    canvas.addEventListener("touchmove", handleTouch, false);
+    canvas.addEventListener("touchend", function(e) {
+      touchActive = false;
+    }, false);
+
+    // Hindernisse (z. B. Meteoriten), die von rechts hereinkommen
+    let obstacles = [];
+    const obstacleSpeed = 3;
+    const obstacleSpawnInterval = 2000; // alle 2 Sekunden
+    let lastSpawnTime = Date.now();
+
+    function spawnObstacle() {
+      const obstacleSize = 40;
+      const obstacleY = Math.random() * (canvas.height - obstacleSize);
+      const obstacle = {
+        x: canvas.width,
+        y: obstacleY,
+        width: obstacleSize,
+        height: obstacleSize,
+        speed: obstacleSpeed
+      };
+      obstacles.push(obstacle);
+    }
+
+    // Einfache Kollisionsprüfung zwischen zwei Rechtecken
+    function rectIntersect(r1, r2) {
+      return !(r2.x > r1.x + r1.width ||
+               r2.x + r2.width < r1.x ||
+               r2.y > r1.y + r1.height ||
+               r2.y + r2.height < r1.y);
+    }
+
+    let score = 0;
+    let startTime = Date.now();
+
+    function update(deltaTime) {
+      // Score basiert auf der überlebten Zeit
+      score = Math.floor((Date.now() - startTime) / 1000);
+
+      // Hindernisse spawnen
+      if (Date.now() - lastSpawnTime > obstacleSpawnInterval) {
+        spawnObstacle();
+        lastSpawnTime = Date.now();
+      }
+
+      // UFO-Bewegung: Touchsteuerung hat Vorrang, ansonsten Tastatursteuerung
+      if (touchActive) {
+        // Interpolieren: UFO bewegt sich sanft in Richtung des Touchpunkts
+        ufo.x += (touchTarget.x - ufo.x - ufo.width / 2) * 0.2;
+        ufo.y += (touchTarget.y - ufo.y - ufo.height / 2) * 0.2;
+      } else {
+        if (keys.up)    ufo.y -= ufo.speed;
+        if (keys.down)  ufo.y += ufo.speed;
+        if (keys.left)  ufo.x -= ufo.speed;
+        if (keys.right) ufo.x += ufo.speed;
+      }
+
+      // Begrenzung: UFO bleibt im Canvas
+      if (ufo.x < 0) ufo.x = 0;
+      if (ufo.x + ufo.width > canvas.width) ufo.x = canvas.width - ufo.width;
+      if (ufo.y < 0) ufo.y = 0;
+      if (ufo.y + ufo.height > canvas.height) ufo.y = canvas.height - ufo.height;
+
+      // Update und Kollisionsprüfung der Hindernisse
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        let obs = obstacles[i];
+        obs.x -= obs.speed;
+        if (rectIntersect(ufo, obs)) {
+          resetGame();
+          return;
+        }
+        if (obs.x + obs.width < 0) {
+          obstacles.splice(i, 1);
+        }
+      }
+    }
+
+    function resetGame() {
+      ufo.x = 50;
+      ufo.y = canvas.height / 2 - 25;
+      obstacles = [];
+      startTime = Date.now();
+      lastSpawnTime = Date.now();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // UFO zeichnen (Leo sitzt drin)
+      if (ufoImage.complete) {
+        ctx.drawImage(ufoImage, ufo.x, ufo.y, ufo.width, ufo.height);
+      } else {
+        ctx.fillStyle = "#0f0";
+        ctx.fillRect(ufo.x, ufo.y, ufo.width, ufo.height);
+      }
+
+      // Hindernisse zeichnen
+      ctx.fillStyle = "#f00";
+      obstacles.forEach(obs => {
+        ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+      });
+
+      // Score anzeigen
+      ctx.fillStyle = "#fff";
+      ctx.font = "20px Arial";
+      ctx.fillText("Score: " + score, 10, 30);
+    }
+
+    let lastTime = 0;
+    function gameLoop(timestamp) {
+      if (!lastTime) lastTime = timestamp;
+      const deltaTime = timestamp - lastTime;
+      lastTime = timestamp;
+
+      update(deltaTime);
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
