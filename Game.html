@@ -20,7 +20,6 @@
             y: 300,
             width: 40,
             height: 60,
-            color: 'blue',
             dy: 0,
             speed: 5,
             gravity: 0.5,
@@ -30,41 +29,87 @@
         const enemy = {
             x: 700,
             y: 280,
-            width: 60,
+            width: 80,
             height: 80,
-            color: 'purple',
             speed: 2
         };
 
         function drawPlayer() {
-            // Einfache Darstellung eines "blinden Jungen"
-            ctx.fillStyle = player.color;
-            ctx.fillRect(player.x, player.y, player.width, player.height);
+            // Kopf
+            ctx.fillStyle = '#f0e68c'; // Hautfarbe
+            ctx.fillRect(player.x + 10, player.y, 20, 20);
+
+            // Haare
+            ctx.fillStyle = '#ffd700'; // Blond
+            ctx.fillRect(player.x + 10, player.y + 5, 20, 10);
+            ctx.fillRect(player.x + 5, player.y + 10, 10, 10);
+            ctx.fillRect(player.x + 25, player.y + 10, 10, 10);
+
+            // Augen
             ctx.fillStyle = 'white';
-            ctx.beginPath();
-            ctx.arc(player.x + 20, player.y + 20, 5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = 'black';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(player.x + 15, player.y + 20);
-            ctx.lineTo(player.x + 25, player.y + 20);
-            ctx.stroke();
+            ctx.fillRect(player.x + 15, player.y + 15, 5, 5);
+            ctx.fillRect(player.x + 25, player.y + 15, 5, 5);
+
+            ctx.fillStyle = 'black';
+            ctx.fillRect(player.x + 17, player.y + 17, 3, 3);
+            ctx.fillRect(player.x + 27, player.y + 17, 3, 3);
+
+            // Körper
+            ctx.fillStyle = 'blue';
+            ctx.fillRect(player.x, player.y + 20, 40, 40);
+
+            // Arme
+            ctx.fillStyle = '#f0e68c';
+            ctx.fillRect(player.x - 10, player.y + 25, 10, 5);
+            ctx.fillRect(player.x + 40, player.y + 25, 10, 5);
+
+            // Beine
+            ctx.fillStyle = 'blue';
+            ctx.fillRect(player.x + 10, player.y + 50, 10, 10);
+            ctx.fillRect(player.x + 20, player.y + 50, 10, 10);
         }
 
         function drawEnemy() {
-            // Einfache Darstellung eines "drachenähnlichen" Gegners
-            ctx.fillStyle = enemy.color;
+            // Körper
+            ctx.fillStyle = 'purple';
             ctx.beginPath();
-            ctx.moveTo(enemy.x, enemy.y);
-            ctx.lineTo(enemy.x + 30, enemy.y + 40);
-            ctx.lineTo(enemy.x + 60, enemy.y);
-            ctx.lineTo(enemy.x + 30, enemy.y - 40);
-            ctx.closePath();
+            ctx.moveTo(enemy.x + 40, enemy.y);
+            ctx.lineTo(enemy.x, enemy.y + 40);
+            ctx.lineTo(enemy.x + 80, enemy.y + 40);
+            ctx.lineTo(enemy.x + 40, enemy.y);
             ctx.fill();
+
+            // Kopf
             ctx.fillStyle = 'red';
             ctx.beginPath();
-            ctx.arc(enemy.x + 30, enemy.y, 10, 0, Math.PI * 2);
+            ctx.arc(enemy.x + 40, enemy.y - 20, 20, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Augen
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(enemy.x + 35, enemy.y - 25, 5, 0, Math.PI * 2);
+            ctx.arc(enemy.x + 45, enemy.y - 25, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(enemy.x + 35, enemy.y - 25, 3, 0, Math.PI * 2);
+            ctx.arc(enemy.x + 45, enemy.y - 25, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Flügel
+            ctx.fillStyle = 'green';
+            ctx.beginPath();
+            ctx.moveTo(enemy.x + 40, enemy.y - 20);
+            ctx.lineTo(enemy.x + 10, enemy.y + 20);
+            ctx.lineTo(enemy.x + 30, enemy.y + 10);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(enemy.x + 40, enemy.y - 20);
+            ctx.lineTo(enemy.x + 70, enemy.y + 20);
+            ctx.lineTo(enemy.x + 50, enemy.y + 10);
             ctx.fill();
         }
 
