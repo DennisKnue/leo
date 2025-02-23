@@ -36,21 +36,6 @@
             speed: 2
         };
 
-        const background = new Image();
-        background.src = 'https://example.com/background.png'; // Ersetzen Sie dies durch den tatsächlichen Pfad zu Ihrem Hintergrundbild
-
-        // Flag to check if the background image is loaded
-        let backgroundLoaded = false;
-
-        background.onload = () => {
-            backgroundLoaded = true;
-        };
-
-        background.onerror = () => {
-            console.error('Could not load background image.');
-            backgroundLoaded = false;
-        };
-
         function drawPlayer() {
             // Einfache Darstellung eines "blinden Jungen"
             ctx.fillStyle = player.color;
@@ -84,15 +69,30 @@
         }
 
         function drawBackground() {
-            if (backgroundLoaded) {
-                ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
-            } else {
-                // Draw a simple sky background if the image is not loaded
-                ctx.fillStyle = '#87ceeb';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#4682b4';
-                ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
-            }
+            // Zeichne einen einfachen Hintergrund mit Himmel und Boden
+            ctx.fillStyle = '#87ceeb'; // Himmelblau
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#4682b4'; // Dunkleres Blau für den Boden
+            ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
+
+            // Zeichne einfache Hügel
+            ctx.fillStyle = '#228b22'; // Waldgrün
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height - 100);
+            ctx.bezierCurveTo(150, canvas.height - 250, 300, canvas.height - 150, 400, canvas.height - 100);
+            ctx.lineTo(400, canvas.height);
+            ctx.lineTo(0, canvas.height);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(400, canvas.height - 100);
+            ctx.bezierCurveTo(550, canvas.height - 250, 700, canvas.height - 150, 800, canvas.height - 100);
+            ctx.lineTo(800, canvas.height);
+            ctx.lineTo(400, canvas.height);
+            ctx.closePath();
+            ctx.fill();
         }
 
         function update() {
@@ -100,8 +100,8 @@
             player.dy += player.gravity;
             player.y += player.dy;
 
-            if (player.y + player.height >= canvas.height) {
-                player.y = canvas.height - player.height;
+            if (player.y + player.height >= canvas.height - 100) {
+                player.y = canvas.height - 100 - player.height;
                 player.dy = 0;
             }
 
@@ -135,7 +135,7 @@
         }
 
         canvas.addEventListener('touchstart', () => {
-            if (player.y + player.height === canvas.height) {
+            if (player.y + player.height === canvas.height - 100) {
                 player.dy = -player.jumpPower;
             }
         });
