@@ -39,6 +39,18 @@
         const background = new Image();
         background.src = 'https://example.com/background.png'; // Ersetzen Sie dies durch den tatsächlichen Pfad zu Ihrem Hintergrundbild
 
+        // Flag to check if the background image is loaded
+        let backgroundLoaded = false;
+
+        background.onload = () => {
+            backgroundLoaded = true;
+        };
+
+        background.onerror = () => {
+            console.error('Could not load background image.');
+            backgroundLoaded = false;
+        };
+
         function drawPlayer() {
             // Einfache Darstellung eines "blinden Jungen"
             ctx.fillStyle = player.color;
@@ -72,7 +84,15 @@
         }
 
         function drawBackground() {
-            ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+            if (backgroundLoaded) {
+                ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+            } else {
+                // Draw a simple sky background if the image is not loaded
+                ctx.fillStyle = '#87ceeb';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#4682b4';
+                ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
+            }
         }
 
         function update() {
@@ -120,7 +140,7 @@
             }
         });
 
-        background.onload = gameLoop;
+        gameLoop();
     </script>
 </body>
 </html>
