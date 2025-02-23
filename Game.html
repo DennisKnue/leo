@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mario-ähnliches Jump and Run</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; background-color: #87ceeb; }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const player = {
+            x: 50,
+            y: 300,
+            width: 40,
+            height: 60,
+            color: 'blue',
+            dy: 0,
+            speed: 5,
+            gravity: 0.5,
+            jumpPower: 10
+        };
+
+        const enemy = {
+            x: 700,
+            y: 280,
+            width: 60,
+            height: 80,
+            color: 'purple',
+            speed: 2
+        };
+
+        const background = new Image();
+        background.src = 'https://example.com/background.png'; // Ersetzen Sie dies durch den tatsächlichen Pfad zu Ihrem Hintergrundbild
+
+        function drawPlayer() {
+            // Einfache Darstellung eines "blinden Jungen"
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(player.x + 20, player.y + 20, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(player.x + 15, player.y + 20);
+            ctx.lineTo(player.x + 25, player.y + 20);
+            ctx.stroke();
+        }
+
+        function drawEnemy() {
+            // Einfache Darstellung eines "drachenähnlichen" Gegners
+            ctx.fillStyle = enemy.color;
+            ctx.beginPath();
+            ctx.moveTo(enemy.x, enemy.y);
+            ctx.lineTo(enemy.x + 30, enemy.y + 40);
+            ctx.lineTo(enemy.x + 60, enemy.y);
+            ctx.lineTo(enemy.x + 30, enemy.y - 40);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = 'red';
+            ctx.beginPath();
+            ctx.arc(enemy.x + 30, enemy.y, 10, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawBackground() {
+            ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+        }
+
+        function update() {
+            // Player movement
+            player.dy += player.gravity;
+            player.y += player.dy;
+
+            if (player.y + player.height >= canvas.height) {
+                player.y = canvas.height - player.height;
+                player.dy = 0;
+            }
+
+            // Enemy movement
+            enemy.x -= enemy.speed;
+            if (enemy.x + enemy.width < 0) {
+                enemy.x = canvas.width;
+            }
+
+            // Collision detection
+            if (player.x < enemy.x + enemy.width &&
+                player.x + player.width > enemy.x &&
+                player.y < enemy.y + enemy.height &&
+                player.y + player.height > enemy.y) {
+                alert('Game Over!');
+                document.location.reload();
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBackground();
+            drawPlayer();
+            drawEnemy();
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        canvas.addEventListener('touchstart', () => {
+            if (player.y + player.height === canvas.height) {
+                player.dy = -player.jumpPower;
+            }
+        });
+
+        background.onload = gameLoop;
+    </script>
+</body>
+</html>
